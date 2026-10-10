@@ -16,7 +16,7 @@ const TOOL = 'mcp__savvy-progress__progress'
 const STEP_TOOL = 'mcp__savvy-progress__step'
 const PANE = 'savvy-agents'
 const PHASES: readonly Phase[] = ['plan', 'design', 'delegate', 'review', 'close']
-const ACCENT = '#8f8cf4'
+const ACCENT = '#2F7BEA'
 const DONE = '#5fbf8f'
 
 type ProgressInput = {
