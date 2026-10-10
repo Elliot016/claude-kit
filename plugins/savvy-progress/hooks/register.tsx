@@ -162,19 +162,11 @@ const label = (f: Flow): string => {
 
 const ratio = (f: Flow): number => (f.isFinished ? 1 : f.total ? f.done / f.total : 0)
 
-// Deterministic noise so the dither does not shimmer between redraws.
-const noise = (x: number, y: number): number => {
-  const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453
-  return s - Math.floor(s)
-}
-
-// The whole row is one SVG: the desktop wraps sibling elements onto new lines,
-// so title, bar, percent and the crab live in one drawing; only the count and
-// the dismiss are Buttons beside it.
-const H = 22
+// The row is one SVG: the desktop wraps sibling elements onto new lines, so the
+// title, the track, the train, its conductor and the label live in one drawing;
+// only the count and the dismiss are Buttons beside it.
+const H = 26
 const BAR_H = 16
-const CRAB_W = 26
-const CELL = 3
 const FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif"
 
 const xml = (s: string): string =>
@@ -199,76 +191,124 @@ const fitText = (s: string, size: number, maxW: number): string => {
   return out + '…'
 }
 
+// What the bar says: the flow's label and its percent, inside the track.
+const trackLabel = (f: Flow): string => `${label(f)} · ${Math.round(ratio(f) * 100)}%`
+
+// The locomotive, drawn in track coordinates with its cab at x and its nose at
+// x + LOCO_W. The cab rises above the track and seats the conductor; the stack
+// puffs and the wheels turn while workers run.
+const LOCO_W = 32
+const LABEL_SIZE = 10.5
+
+const locomotive = (x: number, color: string, isWorking: boolean): string => {
+  const wheel = (cx: number, r: number) =>
+    `<g transform="translate(${x + cx},13)"><circle class="w" r="${r}"/><g class="${isWorking ? 'sp' : ''}"><rect class="hub" x="-0.5" y="${-r + 0.6}" width="1" height="${2 * r - 1.2}"/></g><circle class="hub" r="0.7"/></g>`
+  const puffs = isWorking
+    ? [0, 1, 2].map(i => `<circle class="pf p${i}" cx="${x + 25.5}" cy="-7" r="${1.6 + i * 0.4}"/>`).join('')
+    : ''
+  return `${puffs}
+<rect class="w" x="${x - 1}" y="-8" width="17" height="2"/>
+${crab(x - 1, -10, 'lead', false, isWorking, 0.5)}
+<rect class="w" x="${x}" y="-6" width="2" height="9"/><rect class="w" x="${x + 13}" y="-6" width="2" height="9"/>
+<rect x="${x}" y="2" width="15" height="9" fill="${color}"/><rect x="${x + 3}" y="4" width="4" height="3" class="win"/>
+<rect x="${x + 15}" y="1" width="14" height="10" rx="2" fill="${color}"/>
+<rect x="${x + 19}" y="1" width="1" height="10" class="shade"/><rect x="${x + 24}" y="1" width="1" height="10" class="shade"/>
+<rect x="${x + 18}" y="-1" width="4" height="2" rx="1" fill="${color}"/>
+<rect class="w" x="${x + 24}" y="-5" width="3" height="6"/><rect class="w" x="${x + 23}" y="-6" width="5" height="1.5"/>
+<rect x="${x + 29}" y="3" width="1.5" height="3" fill="#F5C542"/>
+<path class="w" d="M${x + 29} 8h2.5l1 4h-3.5z"/>
+<rect class="w" x="${x}" y="11" width="${LOCO_W - 1}" height="1.2"/>
+${wheel(5, 2.6)}${wheel(11, 2.6)}${wheel(20, 2)}${wheel(26, 2)}`
+}
+
+// One car per accepted task, coupled behind the cab from the track's start.
+const cars = (n: number, end: number, color: string, isWindowed: boolean): string => {
+  if (n <= 0 || end < 10) return ''
+  const pitch = (end - 1) / n
+  const out: string[] = []
+  for (let i = 0; i < n; i++) {
+    const x = 1 + i * pitch
+    const w = Math.max(4, pitch - 2)
+    out.push(`<rect x="${x}" y="2" width="${w}" height="9" rx="1.5" fill="${color}"/><rect x="${x}" y="2" width="${w}" height="1.4" class="shade"/>`)
+    if (isWindowed) for (let wx = x + 3; wx + 3 <= x + w - 2; wx += 5) out.push(`<rect x="${wx}" y="4.5" width="3" height="3" class="win"/>`)
+    if (w >= 9) out.push(`<circle class="w" cx="${x + 3}" cy="13" r="1.7"/><circle class="w" cx="${x + w - 3}" cy="13" r="1.7"/>`)
+    out.push(`<rect class="w" x="${x + w}" y="8" width="${pitch - w + 0.5}" height="1"/>`)
+  }
+  return out.join('')
+}
+
 const rowSvg = (f: Flow, W: number, isWorking: boolean): string => {
-  // The title takes what it needs, up to 40% of the row; the bar takes the rest.
-  const title = fitText(f.title, 13, Math.max(60, W * 0.4))
+  // The title takes what it needs, up to 35% of the row; the track takes the rest.
+  const title = fitText(f.title, 13, Math.max(60, W * 0.35))
   const BAR_X = Math.round(16 + textWidth(title, 13) + 12)
-  const BAR_W = Math.max(60, W - BAR_X - 46 - CRAB_W)
+  const BAR_W = Math.max(LOCO_W + 40, W - BAR_X - 4)
   const color = f.isFinished ? DONE : ACCENT
-  const y0 = (H - BAR_H) / 2
-  const fillW = Math.round(BAR_W * ratio(f))
-  const runW = f.total ? Math.round((BAR_W * Math.min(f.total, f.done + f.running)) / f.total) : 0
-  const dots: string[] = []
+  const y0 = H - BAR_H - 1
+  const run = BAR_W - LOCO_W - 3
+  const cabX = 2 + Math.round(run * ratio(f))
+  const noseX = cabX + LOCO_W
 
-  // Dithered fill: sparse at the start, dense toward the head.
-  const cols = Math.floor(fillW / CELL)
-  const rows = Math.floor(BAR_H / CELL)
-  for (let c = 0; c < cols; c++) {
-    const density = 0.35 + 0.6 * Math.pow(c / Math.max(1, cols), 1.2)
-    for (let r = 0; r < rows; r++) {
-      if (noise(c, r) < density) dots.push(`<rect class="t${Math.floor(noise(r, c) * 4)}" x="${c * CELL + 1}" y="${r * CELL + 1}" width="2" height="2"/>`)
-    }
-  }
-  // Handed to workers, not yet accepted: a faint second layer.
-  const faint: string[] = []
-  for (let c = cols; c < Math.floor(runW / CELL); c++) {
-    for (let r = 0; r < rows; r++) {
-      if (noise(c + 7, r + 3) < 0.2) faint.push(`<rect class="t${Math.floor(noise(r + 5, c) * 4)}" x="${c * CELL + 1}" y="${r * CELL + 1}" width="1.7" height="1.7"/>`)
-    }
-  }
-
-  const ticks: string[] = []
-  for (let i = 1; i < f.total; i++) {
-    const x = Math.round((BAR_W * i) / f.total)
-    if (x > fillW + 4) ticks.push(`<rect x="${x}" y="${BAR_H / 2 - 4}" width="1.5" height="8" rx="0.75"/>`)
-  }
-
-  const text = label(f)
-  const pillW = Math.round(18 + text.length * 6.6)
-  const pillX = Math.max(0, Math.min(BAR_W - pillW, fillW - pillW))
-  const percent = `${Math.round(ratio(f) * 100)}%`
+  // The label rides the open track ahead of the train while it fits there, then
+  // moves onto the cars in white; at worst it is cut to the larger of the two.
+  const text = trackLabel(f)
+  const tw = textWidth(text, LABEL_SIZE)
+  const aheadW = BAR_W - noseX - 12
+  const carsW = cabX - 10
+  const onCars = aheadW < tw && (carsW >= tw || carsW > aheadW)
+  const shown = fitText(text, LABEL_SIZE, Math.max(10, onCars ? carsW : aheadW))
+  const n = f.total ? f.done : f.isFinished ? Math.max(1, Math.round(cabX / 44)) : 0
+  const sleepers: string[] = []
+  for (let x = 4; x < BAR_W - 2; x += 6) sleepers.push(`<rect x="${x}" y="14.6" width="2" height="1.4"/>`)
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <style>
-.t{fill:#1f1f1f}.m{fill:#8a8a8a}.k{fill:#e4e4e2}.tk{fill:#b4b4b0}
-@media (prefers-color-scheme: dark){.t{fill:#ececec}.m{fill:#9a9a9a}.k{fill:#2c2c2c}.tk{fill:#5a5a5a}}
-/* Pixels twinkle in four out-of-phase groups; a finished bar settles to a slow glow. */
-.t0,.t1,.t2,.t3{animation:tw ${f.isFinished ? 3.2 : 2.2}s ease-in-out infinite}
-.t1{animation-duration:${f.isFinished ? 3.8 : 2.8}s;animation-delay:-.7s}.t2{animation-duration:${f.isFinished ? 4.4 : 1.9}s;animation-delay:-1.3s}.t3{animation-duration:${f.isFinished ? 3.5 : 3.3}s;animation-delay:-.4s}
-@keyframes tw{0%,100%{opacity:1}50%{opacity:${f.isFinished ? 0.8 : 0.3}}}
-@media (prefers-reduced-motion: reduce){.t0,.t1,.t2,.t3{animation:none}}
-</style>
-<defs><clipPath id="c"><rect x="0" y="0" width="${BAR_W}" height="${BAR_H}" rx="${BAR_H / 2}"/></clipPath></defs>
-<circle cx="5" cy="${H / 2}" r="4" fill="${color}"/>
-<text class="t" x="16" y="${H / 2 + 4.5}" font-family="${FONT}" font-size="13" font-weight="500">${xml(title)}</text>
+.t{fill:#1f1f1f}.m{fill:#6b6b68}.k{fill:#ecebe8}.tk{fill:#c9c8c3}.w{fill:#3d3d40}.hub{fill:#b9b8b3}.win{fill:#ffffff;opacity:.55}.shade{fill:#000;opacity:.14}.pf{fill:#b4b4b0}
+@media (prefers-color-scheme: dark){.t{fill:#ececec}.m{fill:#a8a8a4}.k{fill:#2a2a29}.tk{fill:#4a4a48}.w{fill:#a5a5aa}.hub{fill:#2a2a29}.pf{fill:#6a6a68}}
+.sp{animation:spin .6s linear infinite;transform-box:fill-box;transform-origin:center}@keyframes spin{to{transform:rotate(360deg)}}
+.pf{animation:puff 1.5s ease-out infinite;transform-box:fill-box;transform-origin:center;opacity:0}.p1{animation-delay:-.5s}.p2{animation-delay:-1s}
+@keyframes puff{0%{opacity:.8;transform:translate(0,0) scale(.6)}100%{opacity:0;transform:translate(-9px,-4px) scale(1.6)}}
+@media (prefers-reduced-motion: reduce){.sp,.pf{animation:none}.pf{opacity:.5}}
+</style>${CRAB_CSS}
+<circle cx="5" cy="${y0 + BAR_H / 2}" r="4" fill="${color}"/>
+<text class="t" x="16" y="${y0 + BAR_H / 2 + 4.5}" font-family="${FONT}" font-size="13" font-weight="500">${xml(title)}</text>
 <g transform="translate(${BAR_X},${y0})">
-<rect class="k" width="${BAR_W}" height="${BAR_H}" rx="${BAR_H / 2}"/>
-<g clip-path="url(#c)">
-<g fill="${color}">${dots.join('')}</g>
-<g fill="${color}" opacity="0.45">${faint.join('')}</g>
-<g class="tk">${ticks.join('')}</g>
+<rect class="k" width="${BAR_W}" height="${BAR_H}" rx="4"/>
+<g class="tk">${sleepers.join('')}<rect x="2" y="14" width="${BAR_W - 4}" height="0.8"/></g>
+${cars(n, cabX - 3, color, !onCars)}
+${locomotive(cabX, color, isWorking && !f.isFinished)}
+<text x="${onCars ? 6 : BAR_W - 8}" y="10" text-anchor="${onCars ? 'start' : 'end'}" font-family="${FONT}" font-size="${LABEL_SIZE}" font-weight="600" font-variant-numeric="tabular-nums" ${onCars ? 'fill="#ffffff"' : 'class="t"'}>${xml(shown)}</text>
 </g>
-<rect x="${pillX}" width="${pillW}" height="${BAR_H}" rx="${BAR_H / 2}" fill="${color}"/>
-<text x="${pillX + pillW / 2}" y="${BAR_H / 2 + 4}" text-anchor="middle" font-family="${FONT}" font-size="11" font-weight="600" fill="#ffffff">${xml(text)}</text>
-</g>
-<text class="m" x="${W - CRAB_W - 6}" y="${H / 2 + 4.5}" text-anchor="end" font-family="${FONT}" font-size="12.5" font-variant-numeric="tabular-nums">${percent}</text>
-${CRAB_CSS}${crab(W - CRAB_W + 1, 0, 'other', false, isWorking, 0.8)}
 </svg>`
 }
 
-const barText = (f: Flow, width: number): string => {
-  const filled = Math.round(width * ratio(f))
-  return '█'.repeat(filled) + '░'.repeat(Math.max(0, width - filled))
+// The terminal's train: cars on a colored band, the engine's nose at the head,
+// open track ahead, and the label inside, on the track or on the cars.
+type Cell = { ch: string; isTrain: boolean; isLabel: boolean }
+type Run = { text: string; isTrain: boolean; isLabel: boolean }
+
+const trainRuns = (f: Flow, width: number): Run[] => {
+  const head = 1 + Math.round((width - 1) * ratio(f))
+  const cells: Cell[] = Array.from({ length: width }, (_, i) =>
+    i < head - 1 ? { ch: ' ', isTrain: true, isLabel: false } : i === head - 1 ? { ch: '▶', isTrain: true, isLabel: false } : { ch: '┄', isTrain: false, isLabel: false },
+  )
+  const text = ` ${trackLabel(f)} `
+  const ahead = width - head
+  const behind = head - 1
+  const onCars = ahead < text.length && (behind >= text.length || behind > ahead)
+  const room = onCars ? behind : ahead
+  const shown = clip(text, Math.max(0, room))
+  const start = onCars ? 0 : width - shown.length
+  ;[...shown].forEach((ch, i) => {
+    const c = cells[start + i]
+    if (c) cells[start + i] = { ch, isTrain: c.isTrain, isLabel: true }
+  })
+  const runs: Run[] = []
+  for (const c of cells) {
+    const last = runs[runs.length - 1]
+    if (last && last.isTrain === c.isTrain && last.isLabel === c.isLabel) last.text += c.ch
+    else runs.push({ text: c.ch, isTrain: c.isTrain, isLabel: c.isLabel })
+  }
+  return runs
 }
 
 // ---------------------------------------------------------------------------
@@ -409,79 +449,28 @@ const crabBody = (f: Fill, armFront = 0, armCls?: string): void => {
 }
 
 // Pure CSS, run by the compositor: no redraws. Periods divide one second, so the
-// once-a-second redraw of a running row restarts them in phase. Every crab walks;
-// each costume adds its prop's own motion on top.
+// once-a-second redraw of a running row restarts them in phase. Every crab walks
+// and swings its lantern.
 const CRAB_CSS = `<style>
 .run .la{animation:st .5s steps(1) infinite}.run .lb{animation:st .5s steps(1) infinite -.25s}
 .run .bd{animation:bob .5s steps(1) infinite -.125s}
 .run g{transform-box:fill-box}
 @keyframes st{50%{transform:translateY(-1px)}}@keyframes bob{50%{transform:translateY(1px)}}
-.c-fable.run{animation:float 1s ease-in-out infinite}
-.c-fable.run .la,.c-fable.run .lb,.c-fable.run .bd{animation:none}
-.c-fable.run .ant{animation:blink 1s steps(1) infinite}
-.c-fable.run .star{animation:blink .5s steps(1) infinite -.25s}
-@keyframes float{50%{transform:translateY(-2px)}}@keyframes blink{50%{opacity:.15}}
-.c-heavy.run .it{animation:scan 1s steps(1) infinite}
-.c-heavy.run .gl{animation:blink 1s steps(1) infinite -.5s}
-@keyframes scan{25%{transform:translate(-1px,1px)}50%{transform:translate(-2px,2px)}75%{transform:translate(-1px,1px)}}
-.c-careful.run .it{transform-origin:100% 100%;animation:twist .5s ease-in-out infinite}
-@keyframes twist{50%{transform:rotate(-35deg)}}
-.c-medium.run .pan{transform-origin:0 50%;animation:tilt 1s ease-in-out infinite}
-.c-medium.run .egg{animation:flip 1s ease-in-out infinite}
-@keyframes tilt{20%,40%{transform:rotate(-12deg)}}@keyframes flip{30%{transform:translateY(-5px) scaleY(-1)}60%{transform:translateY(0)}}
-.c-light.run .la{animation-duration:.25s}.c-light.run .lb{animation-duration:.25s;animation-delay:-.125s}
-.c-light.run .flag{transform-origin:0 50%;animation:wave .25s steps(1) infinite}
-@keyframes wave{50%{transform:skewY(-12deg) scaleX(.85)}}
-.c-explore.run .it{transform-origin:50% 100%;animation:fence .5s ease-in-out infinite}
-@keyframes fence{50%{transform:rotate(25deg)}}
+.run .lamp{transform-origin:50% 0;animation:swing 1s ease-in-out infinite}
+@keyframes swing{0%,100%{transform:rotate(9deg)}50%{transform:rotate(-9deg)}}
 @media (prefers-reduced-motion: reduce){.run,.run g{animation:none!important}}
 </style>`
 
-const COSTUMES: Record<string, (f: Fill, t: string) => void> = {
-  // Fable: astronaut in a glass dome; floats instead of walking, the antenna and the star blink.
-  fable: (f, t) => {
-    crabBody(f)
-    f(6, 7, 18, 1, '#E6E8EE'); f(5, 8, 1, 14, '#E6E8EE'); f(24, 8, 1, 14, '#E6E8EE'); f(6, 22, 18, 1, '#C9CCD2')
-    f(6, 8, 18, 14, 'rgba(169,214,245,.32)'); f(8, 9, 2, 1, '#fff'); f(8, 10, 1, 2, '#fff')
-    f(14, 4, 2, 3, '#C9CCD2'); f(14, 2, 2, 2, t, 'ant'); f(13, 18, 4, 2, t)
-    f(27, 3, 1, 3, '#F5C542', 'star'); f(26, 4, 3, 1, '#F5C542', 'star')
-  },
-  // Heavy: detective with a deerstalker; the magnifier sweeps and glints.
-  heavy: (f, t) => {
-    crabBody(f, -4, 'it')
-    stamp(f, 6, 3, ['......bbbbbb......', '....bbcbbcbbbb....', '...bbbbbbbbbbbb...', '..bcbbcbbcbbcbbb..', '.bbbbbbbbbbbbbbbb.', 'dddddddddddddddddd'], { b: '#7A4A26', c: '#A0703F', d: '#5A3519' })
-    f(6, 9, 18, 1, t)
-    stamp(f, 23, 1, ['.kkk.', 'k...k', 'k...k', 'k...k', '.kkk.'], { k: '#3A3A3C' }, 'it')
-    f(24, 2, 3, 3, 'rgba(169,214,245,.7)', 'it'); f(25, 6, 1, 4, '#7A4A26', 'it'); f(24, 2, 1, 1, '#fff', 'gl')
-  },
-  // Careful: engineer in a hard hat; the wrench turns a bolt.
-  careful: (f, t) => {
-    crabBody(f)
-    stamp(f, 6, 4, ['.....yyyyyyyy.....', '...yyyyyhhyyyyy...', '..yyyyyyhhyyyyyy..', '..yyyyyyhhyyyyyy..', '.yyyyyyyhhyyyyyyy.', 'dddddddddddddddddd'], { y: '#F5C542', h: '#FBE08A', d: '#C99A1E' })
-    f(13, 5, 4, 2, t)
-    stamp(f, 0, 10, ['.s.s', 'sss.', '.s..', '.s..'], { s: '#8E929A' }, 'it')
-  },
-  // Medium: chef, the toque traced from DockCrab's Sprites.chefHat; tosses the omelette.
-  medium: (f, t) => {
-    crabBody(f, -4, 'pan')
-    stamp(f, 6, 0, ['........lll.......', '.......lllll......', '.wwwwgwwwwwwgwwwww', 'wwwwwwwwwwwwwwwwww', 'wwwwwwwwwwwwwwwwww', 'wwwwwgwwwwwggwwwww', '.wwwwgwwwwwggwwwww', '.dddbbbbbbbbbbbbb.', '.dddbbbbbbbbbbbbb.', '.dddbbbbbbbbbbbbb.'], { w: '#F4F3EE', l: '#F7F6F2', g: '#D2D1C8', b: t, d: '#B45F43' })
-    f(22, 8, 7, 2, '#4A4A48', 'pan'); f(26, 10, 1, 1, '#4A4A48', 'pan'); f(24, 7, 3, 1, '#F5B731', 'egg')
-  },
-  // Light: racer in a helmet; runs at double pace, the checkered flag flutters.
-  light: (f, t) => {
-    crabBody(f, -4)
-    stamp(f, 6, 5, ['....rrrrrrrrrr....', '..rrrrrrwwrrrrrr..', '.rrrrrrrwwrrrrrrr.', '.rrrrrrrwwrrrrrrr.', '.rrrrrrrwwrrrrrrr.', '.kkkkkkkkkkkkkkkkr'], { r: t, w: '#F8F6F1', k: INK })
-    f(25, 1, 1, 9, '#8E929A')
-    stamp(f, 26, 1, ['wkwk', 'kwkw', 'wkwk'], { w: '#F8F6F1', k: INK }, 'flag')
-  },
-  // Explore: pirate scouting the code; the cutlass fences.
-  explore: f => {
-    crabBody(f)
-    stamp(f, 5, 3, ['.kk..............kk.', '.kkk....kkkk....kkk.', '..kkkkkkkwwkkkkkkk..', '..kkkkkkkkkkkkkkkk..', '.gggggggggggggggggg.'], { k: '#55514C', w: '#F8F6F1', g: '#F5C542' })
-    f(7, 11, 11, 1, INK); f(18, 11, 4, 3, INK)
-    f(27, 6, 1, 9, '#C9CCD2', 'it'); f(26, 15, 3, 1, '#7A4A26', 'it')
-  },
-  other: f => crabBody(f),
+// Every crab is a train conductor: a navy cap with a band in its tier's color and a
+// gold badge, and a lantern with tier-colored glass in the raised front claw.
+const conductor = (f: Fill, t: string): void => {
+  crabBody(f, -4, 'lamp')
+  stamp(f, 6, 5, ['....nnnnnnnnnn....', '..nnnnnnnggnnnnn..', '..nnnnnnnggnnnnn..', '..bbbbbbbbbbbbbb..', '..kkkkkkkkkkkkkkkkkk'], { n: '#2B3A55', g: '#F5C542', b: t, k: '#1A2233' })
+  f(25, 14, 1, 1, '#55514C', 'lamp')
+  f(24, 15, 3, 1, '#55514C', 'lamp')
+  f(24, 16, 3, 3, t, 'lamp')
+  f(25, 17, 1, 1, '#FFF6D5', 'lamp')
+  f(24, 19, 3, 1, '#55514C', 'lamp')
 }
 
 const costumeOf = (type: string): string => (type === 'Explore' ? 'explore' : tierOf(type))
@@ -496,8 +485,7 @@ const crab = (x: number, y: number, costume: string, dim = false, isWalking = fa
     if (!groups.has(cls)) groups.set(cls, [])
     groups.get(cls)?.push(`<rect x="${cx}" y="${cy}" width="${w}" height="${h}" fill="${c}"/>`)
   }
-  const draw = COSTUMES[costume] ?? ((g: Fill) => crabBody(g))
-  draw(f, colorOf(costume))
+  conductor(f, costume === 'lead' ? ACCENT : colorOf(costume))
   const group = (cls: string) => `<g class="${cls}">${(groups.get(cls) ?? []).join('')}</g>`
   const props = [...groups.keys()].filter(k => k !== 'bd' && k !== 'la' && k !== 'lb')
   const body = `<g class="bd">${(groups.get('bd') ?? []).join('')}${props.map(group).join('')}</g>`
@@ -1045,7 +1033,8 @@ export const register: Register = (on, options) => {
       />
     )
 
-    if ('Svg' in ui) {
+    // The terminal's table answers `Svg` with an empty box, so it draws the text train.
+    if (e.surface !== 'terminal' && 'Svg' in ui) {
       const { Svg } = ui
       // About 8 CSS px per reported column; the rest is the count, the dismiss
       // and their gaps. No floor above the slot: a row wider than it would wrap.
@@ -1061,17 +1050,23 @@ export const register: Register = (on, options) => {
 
     const cols = e.props.bodyColumns
     const titleW = Math.max(8, Math.min(30, f.title.length + 2, Math.floor(cols / 3)))
-    const width = Math.max(6, Math.min(40, cols - titleW - 32))
+    const width = Math.max(12, Math.min(56, cols - titleW - 14))
+    const color = f.isFinished ? DONE : ACCENT
     return (
       <Box flexDirection="row" gap={2}>
         <Box width={titleW} flexShrink={0}>
-          <Text color={f.isFinished ? DONE : ACCENT}>● </Text>
+          <Text color={color}>● </Text>
           <Text wrap="truncate-end">{f.title}</Text>
         </Box>
-        <Text color={f.isFinished ? DONE : ACCENT}>{barText(f, width)}</Text>
-        <Text bold>{label(f)}</Text>
-        <Text dimColor>{percent}</Text>
-        <Text color={CLAY}>▣</Text>
+        <Box flexDirection="row" flexShrink={0}>
+          {trainRuns(f, width).map((r, i) =>
+            r.isTrain ? (
+              <Text key={`r${i}`} color="#ffffff" backgroundColor={color} bold={r.isLabel}>{r.text}</Text>
+            ) : (
+              <Text key={`r${i}`} bold={r.isLabel} dimColor={!r.isLabel}>{r.text}</Text>
+            ),
+          )}
+        </Box>
         {crewButton}
         {dismiss}
       </Box>

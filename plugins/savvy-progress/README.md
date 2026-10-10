@@ -2,8 +2,8 @@
 
 A Claude Code mod: a progress bar above the prompt and a live panel of subagents. Made for the [savvy-flow](../savvy-flow) skill, and useful with any subagents.
 
-- **Progress bar**: the flow's title, phase, accepted tasks out of planned, and a button with the crew size that opens the panel. It appears once something reports progress (savvy-flow does) or a `savvy-*` worker starts.
-- **Agents panel** (`/agents-info` toggles it): running, finished and planned subagents with model, effort, task progress, context, estimated cost and time. Working crabs walk, and each savvy tier animates its prop: the astronaut floats, the detective sweeps the magnifier, the engineer turns the wrench, the chef tosses the omelette, the racer runs with a fluttering flag. `prefers-reduced-motion` stops them.
+- **Progress bar**: a train on a track. The engine moves along as tasks are accepted, pulling one car per accepted task, with a crab conductor in the cab; the label (phase, accepted out of planned, percent) rides inside the track ahead of the train, then on the cars. In the terminal it is a text train with the label inside. Beside it, the flow's title and a button with the crew size that opens the panel. It appears once something reports progress (savvy-flow does) or a `savvy-*` worker starts.
+- **Agents panel** (`/agents-info` toggles it): running, finished and planned subagents with model, effort, task progress, context, estimated cost and time. Every crab is a train conductor: a navy cap with a band in its tier's color and a lantern with tier-colored glass. Working crabs walk and swing the lantern. `prefers-reduced-motion` stops them.
 
 ## Tools it adds
 
