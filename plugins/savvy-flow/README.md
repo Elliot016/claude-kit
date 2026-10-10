@@ -13,7 +13,7 @@ An orchestrated delivery flow for Claude Code. Run `/savvy-flow <task>` (`/savvy
   | `savvy-heavy` | Opus / high | unfamiliar code, unclear root cause |
   | `savvy-careful` | Opus / high | delicate but well-understood changes |
   | `savvy-medium` | Sonnet / medium | standard feature work |
-  | `savvy-light` | Haiku | mechanical edits, builds, tests |
+  | `savvy-light` | Sonnet / low | mechanical edits, builds, tests |
 
   `savvy-fable` runs on the Fable model; without access to it, change `model:` in `agents/savvy-fable.md` (say, to `opus`).
 

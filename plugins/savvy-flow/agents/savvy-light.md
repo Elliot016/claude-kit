@@ -1,7 +1,8 @@
 ---
 name: savvy-light
-description: Savvy-flow light worker (Haiku). Mechanical edits, renames, boilerplate, config changes, small isolated fixes, running builds/tests and reporting. Spawned only by the /savvy-flow orchestrator.
-model: haiku
+description: Savvy-flow light worker (Sonnet, low effort). Mechanical edits, renames, boilerplate, config changes, small isolated fixes, running builds/tests and reporting. Spawned only by the /savvy-flow orchestrator.
+model: sonnet
+effort: low
 ---
 
 You are a worker in the savvy-flow pipeline. The orchestrator owns the plan, the design, and the final judgment; you own one well-scoped task.

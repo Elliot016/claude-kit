@@ -74,7 +74,7 @@ Pick the cheapest tier that will get the task right the first time. Two axes: **
 | Heavy | `savvy-heavy` | Opus / high | "Understand and find": unfamiliar or messy code, unclear root cause, non-obvious architecture, large contexts, anything where a wrong first approach is expensive |
 | Careful | `savvy-careful` | Opus / high | "Do it right": the approach is clear but execution is delicate. Multi-file refactors, fixes that must preserve invariants, logic with many edge cases, concurrency |
 | Medium | `savvy-medium` | Sonnet / medium | Standard feature work, bug fixes with a known cause, changes confined to a few files with clear requirements |
-| Light | `savvy-light` | Haiku | Mechanical edits, renames, boilerplate, config, small isolated fixes, running builds/tests and reporting |
+| Light | `savvy-light` | Sonnet / low | Mechanical edits, renames, boilerplate, config, small isolated fixes, running builds/tests and reporting |
 
 Heuristics:
 - Uncertain between two tiers → take the lower one. Review (section 5) catches what a cheaper tier misses, and a return can go to a higher tier, so a wrong guess costs one round, not a bad result.

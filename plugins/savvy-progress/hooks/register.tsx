@@ -363,7 +363,7 @@ const TIER_MODEL: Record<string, string> = {
   heavy: 'Opus · high',
   careful: 'Opus · high',
   medium: 'Sonnet · medium',
-  light: 'Haiku',
+  light: 'Sonnet · low',
 }
 
 // USD per million tokens: input, output, cache read, cache write (5-minute TTL).
