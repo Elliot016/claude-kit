@@ -1173,9 +1173,22 @@ export const register: Register = (on, options) => {
           </Text>
           {toggleCompact}
         </Box>
-        <Text dimColor>
-          ≈{fmtCost(t.cost)} · {fmtTokens(t.tokens)} {s.tokensWord} · {fmtTime(t.time)}
-        </Text>
+        <Box flexDirection="row" gap={1}>
+          {[
+            { key: 'cost', label: s.cost, value: `≈${fmtCost(t.cost)}` },
+            { key: 'tokens', label: s.tokens, value: fmtTokens(t.tokens) },
+            { key: 'time', label: s.time, value: fmtTime(t.time) },
+          ].map(tile => (
+            <Box key={tile.key} flexDirection="column" flexGrow={1} borderStyle="round" borderDimColor paddingX={1}>
+              <Text dimColor wrap="truncate-end">
+                {tile.label}
+              </Text>
+              <Text bold wrap="truncate-end">
+                {tile.value}
+              </Text>
+            </Box>
+          ))}
+        </Box>
         {p.isCompact ? (
           <Text wrap="truncate-end">
             {[...running, ...finished].map(a => (

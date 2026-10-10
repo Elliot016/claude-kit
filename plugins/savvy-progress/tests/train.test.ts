@@ -79,6 +79,7 @@ test('in Ghostty each worker row in the panel leads with its conductor crab', as
   const props = (crab as unknown as { props: { columns: number; rows: number } }).props
   expect([props.columns, props.rows]).toEqual([4, 2])
   expect(await pane.find({ type: 'Text', text: 'Refactor the plan import' })).toBeDefined()
+  for (const label of ['Cost', 'Tokens', 'Time']) expect(await pane.find({ type: 'Text', text: label })).toBeDefined()
 })
 
 test('/agents-info opens a pane that waits undrawn instead of closing it', async ($, on) => {
