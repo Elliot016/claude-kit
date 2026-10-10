@@ -15,6 +15,7 @@ Task from the user: $ARGUMENTS
 
 - The flow is designed for a strong orchestrator model at high effort (Fable high is the reference setup). Do not try to detect or verify the session's model or effort — you cannot see the effort level. Whatever the session runs on is the user's deliberate choice; just orchestrate.
 - Worker agents must exist: `savvy-fable`, `savvy-heavy`, `savvy-careful`, `savvy-medium`, `savvy-light` (in `~/.claude/agents/`, or shipped with the savvy-flow plugin, in which case the Agent tool lists them as `savvy-flow:savvy-careful` and so on). If the Agent tool does not list them, stop and tell the user.
+- Small jobs skip the flow. If the whole request is one small change (a single file or a few lines, with an obvious approach), do it directly in the session and say so in one line. Planning, delegation and review cost more than the work itself at that size.
 
 ## Progress bar
 
@@ -69,14 +70,16 @@ Pick the cheapest tier that will get the task right the first time. Two axes: **
 
 | Tier | Agent | Model / effort | Use for |
 |------|-------|----------------|---------|
-| Fable | `savvy-fable` | Fable / high | "Hardest problems": very complex logic (subtle algorithms, concurrency, many interacting states), hard bugs that resist ordinary debugging or survived a Heavy investigation; targeted design features, only when the user asks (section 2) |
-| Heavy | `savvy-heavy` | Opus / xhigh | "Understand and find": unfamiliar or messy code, unclear root cause, non-obvious architecture, large contexts, anything where a wrong first approach is expensive |
-| Careful | `savvy-careful` | Opus / high | "Do it right": the approach is clear but execution is delicate. Multi-file refactors, fixes that must preserve invariants, logic with many edge cases, concurrency |
-| Medium | `savvy-medium` | Opus / medium | Standard feature work, bug fixes with a known cause, changes confined to a few files with clear requirements |
-| Light | `savvy-light` | Opus / low | Mechanical edits, renames, boilerplate, config, small isolated fixes, running builds/tests and reporting |
+| Fable | `savvy-fable` | Fable / high | Opt-in only: use it solely when the user explicitly asks for the Fable tier. "Hardest problems": very complex logic (subtle algorithms, concurrency, many interacting states), hard bugs that resist ordinary debugging or survived a Heavy investigation; targeted design features, only when the user asks (section 2) |
+| Heavy | `savvy-heavy` | Opus / high | "Understand and find": unfamiliar or messy code, unclear root cause, non-obvious architecture, large contexts, anything where a wrong first approach is expensive |
+| Careful | `savvy-careful` | Sonnet / high | "Do it right": the approach is clear but execution is delicate. Multi-file refactors, fixes that must preserve invariants, logic with many edge cases, concurrency |
+| Medium | `savvy-medium` | Sonnet / medium | Standard feature work, bug fixes with a known cause, changes confined to a few files with clear requirements |
+| Light | `savvy-light` | Haiku | Mechanical edits, renames, boilerplate, config, small isolated fixes, running builds/tests and reporting |
 
 Heuristics:
-- Uncertain between two tiers → take the higher one. Exception: Fable is a reserve tier; pick it only when the task clearly meets its criteria, otherwise Heavy.
+- Uncertain between two tiers → take the lower one. Review (section 5) catches what a cheaper tier misses, and a return can go to a higher tier, so a wrong guess costs one round, not a bad result.
+- Never pick Fable on your own judgment. Without an explicit user request for it, the hardest tasks go to Heavy.
+- Keep Light for truly mechanical work. Anything that needs judgment about behaviour goes to Medium or higher.
 - Heavy vs Careful is about the kind of difficulty, not the amount: insight needed → Heavy; thoroughness needed → Careful. A task that needs both is two tasks: Heavy investigates and produces a precise brief, Careful implements it.
 - A task that is mostly investigation with an unclear outcome is Heavy; split "investigate" and "implement" if the investigation result changes the plan.
 - Never delegate final judgment (section 5) to any tier. Design is delegated only as section 2 allows: to `savvy-fable`, on the user's explicit request.

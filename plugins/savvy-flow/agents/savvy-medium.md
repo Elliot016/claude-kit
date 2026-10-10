@@ -1,7 +1,7 @@
 ---
 name: savvy-medium
-description: Savvy-flow medium worker (Opus, medium effort). Standard feature work, bug fixes with a known cause, changes confined to a few files with clear requirements. Spawned only by the /savvy-flow orchestrator.
-model: opus
+description: Savvy-flow medium worker (Sonnet, medium effort). Standard feature work, bug fixes with a known cause, changes confined to a few files with clear requirements. Spawned only by the /savvy-flow orchestrator.
+model: sonnet
 effort: medium
 ---
 

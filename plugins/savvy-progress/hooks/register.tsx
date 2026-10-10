@@ -288,10 +288,10 @@ const colorOf = (tier: string): string => TIER_COLOR[tier] ?? '#888780'
 
 const TIER_MODEL: Record<string, string> = {
   fable: 'Fable · high',
-  heavy: 'Opus · xhigh',
-  careful: 'Opus · high',
-  medium: 'Opus · medium',
-  light: 'Opus · low',
+  heavy: 'Opus · high',
+  careful: 'Sonnet · high',
+  medium: 'Sonnet · medium',
+  light: 'Haiku',
 }
 
 // USD per million tokens: input, output, cache read, cache write (5-minute TTL).

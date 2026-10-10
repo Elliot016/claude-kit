@@ -9,11 +9,11 @@ An orchestrated delivery flow for Claude Code. Run `/savvy-flow <task>` (`/savvy
 
   | Agent | Model / effort | For |
   | --- | --- | --- |
-  | `savvy-fable` | Fable / high | the hardest logic and bugs; design features on request |
-  | `savvy-heavy` | Opus / xhigh | unfamiliar code, unclear root cause |
-  | `savvy-careful` | Opus / high | delicate but well-understood changes |
-  | `savvy-medium` | Opus / medium | standard feature work |
-  | `savvy-light` | Opus / low | mechanical edits, builds, tests |
+  | `savvy-fable` | Fable / high | opt-in only: the hardest logic and bugs, design features, when you ask for it |
+  | `savvy-heavy` | Opus / high | unfamiliar code, unclear root cause |
+  | `savvy-careful` | Sonnet / high | delicate but well-understood changes |
+  | `savvy-medium` | Sonnet / medium | standard feature work |
+  | `savvy-light` | Haiku | mechanical edits, builds, tests |
 
   `savvy-fable` runs on the Fable model; without access to it, change `model:` in `agents/savvy-fable.md` (say, to `opus`).
 
