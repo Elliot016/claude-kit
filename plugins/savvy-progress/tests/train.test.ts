@@ -5,13 +5,16 @@ const PROPS = { hasSurvey: false, isWorking: true, maxRows: 3, bodyColumns: 120 
 
 // Stands in for the engine at session start; `env` is the environment the mod reads.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const start = async ($: any, on: On, env: Record<string, string> = {}) => {
+const start = async ($: any, on: On, env: Record<string, string> = {}, calls: string[] = []) => {
   on('session.start', async () => ({ cwd: '/tmp/project' }) as never)
   on('env.get', async (_$, e) => ({ value: env[e.name] }) as never)
   on('settings.read', async () => ({ value: {} }) as never)
   on('clock.now', async () => ({ value: 100_000 }) as never)
   on('clock.every', async () => ({ value: undefined }) as never)
-  on('ui.open', async () => ({ value: undefined }) as never)
+  on('ui.open', async () => {
+    calls.push('open')
+    return { value: undefined } as never
+  })
   on('tool.register', async () => ({ value: undefined }) as never)
   on('command.register', async () => ({ value: undefined }) as never)
   await $.session.start({ source: 'startup', cwd: '/tmp/project' } as never)
@@ -74,4 +77,17 @@ test('in Ghostty each worker row in the panel leads with its conductor crab', as
   const props = (crab as unknown as { props: { columns: number; rows: number } }).props
   expect([props.columns, props.rows]).toEqual([4, 2])
   expect(await pane.find({ type: 'Text', text: 'Refactor the plan import' })).toBeDefined()
+})
+
+test('/agents-info opens a pane that waits undrawn instead of closing it', async ($, on) => {
+  const calls: string[] = []
+  on('ui.panes', async () => ({ value: [{ id: 'savvy-agents', title: 'Agents', isShown: false, isFocused: false, isPlaced: false }] }) as never)
+  on('ui.close', async () => {
+    calls.push('close')
+    return {} as never
+  })
+  await start($, on, {}, calls)
+  const result = await $.command.run({ command: 'agents-info', args: '' } as never)
+  expect(calls).toEqual(['open'])
+  expect(JSON.stringify(result)).toContain('opened')
 })

@@ -797,10 +797,12 @@ const compactSvg = (W: number, list: AgentRun[], planned: Planned[], t: ReturnTy
 
 const STATUS_GLYPH: Record<string, string> = { running: '●', done: '✓', failed: '✗', planned: '◷' }
 
-// Opens the agents pane, or closes it when it is up; true when it ends up open.
+// Opens the agents pane, or closes it when the person can see it; true when it ends
+// up open. A pane the flow opened unasked on a narrow terminal is open but waits
+// undrawn, so it counts as hidden: the person's toggle opens it, which seats it.
 async function togglePane($: EngineInterface): Promise<boolean> {
-  const isOpen = (await $.ui.panes()).some(p => p.id === PANE)
-  if (isOpen) {
+  const pane = (await $.ui.panes()).find(p => p.id === PANE)
+  if (pane?.isPlaced && pane.isShown) {
     await $.ui.close({ id: PANE })
     return false
   }
