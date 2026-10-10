@@ -348,8 +348,8 @@ const squareBar = (pct: number, width: number, color: string): Run[] => {
 
 const TIER_COLOR: Record<string, string> = {
   fable: '#7F77DD',
-  heavy: '#D85A30',
-  careful: '#BA7517',
+  heavy: '#E5534B',
+  careful: '#E3B341',
   medium: '#378ADD',
   light: '#1D9E75',
   other: '#888780',
