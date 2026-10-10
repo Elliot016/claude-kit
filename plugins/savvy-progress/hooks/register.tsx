@@ -321,8 +321,9 @@ const trainRuns = (f: Flow, width: number, engineW: number, base = f.isFinished 
   const behindN = Math.round(room * ratio(f))
   const aheadN = room - behindN
   const text = ` ${trackLabel(f)} `
-  const onCars = aheadN < text.length && (behindN >= text.length || behindN > aheadN)
-  const shown = clip(text, Math.max(0, onCars ? behindN : aheadN))
+  // A finished train carries no label: the band shows it beside the crew count.
+  const onCars = !f.isFinished && aheadN < text.length && (behindN >= text.length || behindN > aheadN)
+  const shown = f.isFinished ? '' : clip(text, Math.max(0, onCars ? behindN : aheadN))
   const behind: Run[] = onCars
     ? [{ text: shown, kind: 'carLabel' }, ...squares(behindN - shown.length, base)]
     : squares(behindN, base)
@@ -1290,6 +1291,11 @@ export const register: Register = (on, options) => {
         </Box>
         <Box flexDirection="row" gap={2} alignSelf="flex-end">
           {crewButton}
+          {f.isFinished && (
+            <Text color={DONE} bold>
+              {trackLabel(f)}
+            </Text>
+          )}
           {dismiss}
         </Box>
       </Box>
