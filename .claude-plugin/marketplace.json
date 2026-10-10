@@ -9,17 +9,17 @@
   },
   "plugins": [
     {
-      "name": "savvy-flow",
-      "source": "./plugins/savvy-flow",
+      "name": "off-the-rails-flow",
+      "source": "./plugins/off-the-rails-flow",
       "description": "Skill: plan, delegate to tiered worker subagents, review.",
-      "version": "1.3.3",
+      "version": "1.4.0",
       "category": "skill"
     },
     {
       "name": "savvy-progress",
       "source": "./plugins/savvy-progress",
-      "description": "Mod: progress bar above the prompt and a live agents panel; made for savvy-flow, shows any subagents.",
-      "version": "1.5.7",
+      "description": "Mod: progress bar above the prompt and a live agents panel; made for off-the-rails-flow, shows any subagents.",
+      "version": "1.5.8",
       "category": "mod"
     }
   ]

@@ -112,7 +112,7 @@ async function detectLang($: EngineInterface, option: unknown): Promise<Lang> {
 }
 
 const blank = (): Flow => ({
-  title: 'savvy-flow',
+  title: 'off-the-rails-flow',
   total: 0,
   done: 0,
   running: 0,
@@ -400,7 +400,7 @@ const costOf = (model: string, u: Usage): number => {
 
 const windowOf = (model: string): number => (/haiku/i.test(model) ? 200_000 : 1_000_000)
 
-// `savvy-careful`, or `savvy-flow:savvy-careful` when the agents ship in a plugin.
+// `savvy-careful`, or `off-the-rails-flow:savvy-careful` when the agents ship in a plugin.
 const tierOf = (type: string): string => {
   const bare = type.replace(/^[^:]*:/, '')
   const t = bare.replace(/^savvy-/, '').toLowerCase()
@@ -828,7 +828,7 @@ export const register: Register = (on, options) => {
     await $.tool.register({
       name: 'progress',
       description:
-        'Report /savvy-flow progress to the progress bar above the prompt and the agents panel. ' +
+        'Report /off-the-rails-flow progress to the progress bar above the prompt and the agents panel. ' +
         'Call it after presenting the plan (title, total, tasks, phase "delegate"), each time a task is accepted (done), ' +
         'when switching phase or re-planning (tasks), and once at the end with finished: true. Fields left out keep their previous value.',
       inputSchema: {
@@ -859,7 +859,7 @@ export const register: Register = (on, options) => {
     await $.tool.register({
       name: 'step',
       description:
-        'For savvy-flow workers: report progress on your own task to the agents panel. ' +
+        'For off-the-rails-flow workers: report progress on your own task to the agents panel. ' +
         'Right after reading the brief, call it with `total` (your plan in 3-8 steps) and `done: 0`; ' +
         'call it again as each step finishes. Cheap and silent: it only draws a bar.',
       inputSchema: {
@@ -965,7 +965,7 @@ export const register: Register = (on, options) => {
     await update($, now, () => at)
     if (e.subagentType.startsWith('savvy-')) {
       const f = await read($, flow)
-      await autoOpen($, f && !f.isFinished ? f.title : 'savvy-flow')
+      await autoOpen($, f && !f.isFinished ? f.title : 'off-the-rails-flow')
     }
     return started
   })

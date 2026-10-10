@@ -1,10 +1,10 @@
-# savvy-flow
+# off-the-rails-flow
 
-An orchestrated delivery flow for Claude Code. Run `/savvy-flow <task>` (`/savvy-flow:savvy-flow` when installed as a plugin): the session model plans, owns design, delegates implementation to tiered worker subagents and adversarially reviews what they return.
+An orchestrated delivery flow for Claude Code. Run `/off-the-rails-flow <task>` (`/off-the-rails-flow:off-the-rails-flow` when installed as a plugin): the session model plans, owns design, delegates implementation to tiered worker subagents and adversarially reviews what they return.
 
 ## What ships
 
-- **Skill** `savvy-flow`: the orchestrator's playbook.
+- **Skill** `off-the-rails-flow`: the orchestrator's playbook.
 - **Agents** by tier, cheapest that gets the task right first time:
 
   | Agent | Model / effort | For |

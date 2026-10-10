@@ -4,10 +4,10 @@ My public skills and mods for [Claude Code](https://claude.com/claude-code), in 
 
 | Plugin | Type | What it does |
 | --- | --- | --- |
-| [savvy-flow](plugins/savvy-flow) | skill + agents | `/savvy-flow <task>`: the session model plans, delegates to tiered worker subagents and reviews their work. |
-| [savvy-progress](plugins/savvy-progress) | mod | A progress bar above the prompt and a live agents panel. Made for savvy-flow, shows any subagents. |
+| [off-the-rails-flow](plugins/off-the-rails-flow) | skill + agents | `/off-the-rails-flow <task>`: the session model plans, delegates to tiered worker subagents and reviews their work. |
+| [savvy-progress](plugins/savvy-progress) | mod | A progress bar above the prompt and a live agents panel. Made for off-the-rails-flow, shows any subagents. |
 
-savvy-flow and savvy-progress work on their own and light up together: with both installed, the flow drives the bar and workers report their progress to the panel.
+off-the-rails-flow and savvy-progress work on their own and light up together: with both installed, the flow drives the bar and workers report their progress to the panel.
 
 ## Install
 
@@ -17,11 +17,11 @@ In Claude Code:
 
 ```
 /plugin marketplace add johnnyvizz/claude-kit
-/plugin install savvy-flow@claude-kit
+/plugin install off-the-rails-flow@claude-kit
 /plugin install savvy-progress@claude-kit
 ```
 
-Restart the session afterwards. Plugin skills and agents are namespaced: the skill is `/savvy-flow:savvy-flow`, the agents `savvy-flow:savvy-careful` and so on.
+Restart the session afterwards. Plugin skills and agents are namespaced: the skill is `/off-the-rails-flow:off-the-rails-flow`, the agents `off-the-rails-flow:savvy-careful` and so on.
 
 ### By hand
 
@@ -29,14 +29,14 @@ Restart the session afterwards. Plugin skills and agents are namespaced: the ski
 git clone https://github.com/johnnyvizz/claude-kit.git ~/claude-kit
 ```
 
-**A skill** (no plugin system involved, names stay short: `/savvy-flow`, `savvy-careful`): copy its folders into your Claude Code config.
+**A skill** (no plugin system involved, names stay short: `/off-the-rails-flow`, `savvy-careful`): copy its folders into your Claude Code config.
 
 ```bash
-cp -R ~/claude-kit/plugins/savvy-flow/skills/savvy-flow ~/.claude/skills/
+cp -R ~/claude-kit/plugins/off-the-rails-flow/skills/off-the-rails-flow ~/.claude/skills/
 ```
 
 ```bash
-cp ~/claude-kit/plugins/savvy-flow/agents/*.md ~/.claude/agents/
+cp ~/claude-kit/plugins/off-the-rails-flow/agents/*.md ~/.claude/agents/
 ```
 
 **A mod**: load the folder for one session,

@@ -1,6 +1,6 @@
 ---
-name: savvy-flow
-description: Orchestrated delivery flow. The session model plans, owns design, delegates implementation to tiered worker subagents (savvy-fable / savvy-heavy / savvy-careful / savvy-medium / savvy-light) and adversarially reviews their output. Invoke with /savvy-flow <task>.
+name: off-the-rails-flow
+description: Orchestrated delivery flow. The session model plans, owns design, delegates implementation to tiered worker subagents (savvy-fable / savvy-heavy / savvy-careful / savvy-medium / savvy-light) and adversarially reviews their output. Invoke with /off-the-rails-flow <task>.
 disable-model-invocation: true
 argument-hint: <task description>
 ---
@@ -14,7 +14,7 @@ Task from the user: $ARGUMENTS
 ## 0. Preconditions
 
 - The flow is designed for a strong orchestrator model at high effort (Fable high is the reference setup). Do not try to detect or verify the session's model or effort — you cannot see the effort level. Whatever the session runs on is the user's deliberate choice; just orchestrate.
-- Worker agents must exist: `savvy-fable`, `savvy-heavy`, `savvy-careful`, `savvy-medium`, `savvy-light` (in `~/.claude/agents/`, or shipped with the savvy-flow plugin, in which case the Agent tool lists them as `savvy-flow:savvy-careful` and so on). If the Agent tool does not list them, stop and tell the user.
+- Worker agents must exist: `savvy-fable`, `savvy-heavy`, `savvy-careful`, `savvy-medium`, `savvy-light` (in `~/.claude/agents/`, or shipped with the off-the-rails-flow plugin, in which case the Agent tool lists them as `off-the-rails-flow:savvy-careful` and so on). If the Agent tool does not list them, stop and tell the user.
 - Small jobs skip the flow. If the whole request is one small change (a single file or a few lines, with an obvious approach), do it directly in the session and say so in one line. Planning, delegation and review cost more than the work itself at that size.
 
 ## Progress bar
@@ -88,7 +88,7 @@ Heuristics:
 
 ## 4. Delegate
 
-- Use the Agent tool with `subagent_type` = the tier agent name exactly as the Agent tool lists it (`savvy-careful` or `savvy-flow:savvy-careful`). Run independent tasks in parallel in one message; chain dependent ones.
+- Use the Agent tool with `subagent_type` = the tier agent name exactly as the Agent tool lists it (`savvy-careful` or `off-the-rails-flow:savvy-careful`). Run independent tasks in parallel in one message; chain dependent ones.
 - Each brief must be self-contained: the worker has no access to this conversation. Include file paths, the decided design specs, constraints from CLAUDE.md that matter, and the exact verification expected.
 - Keep briefs tight. Do not paste the whole plan; paste this task.
 - Do not implement in parallel with workers. While they run, prepare the next briefs or the review checklist.
