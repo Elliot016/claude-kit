@@ -361,7 +361,7 @@ const colorOf = (tier: string): string => TIER_COLOR[tier] ?? '#888780'
 const TIER_MODEL: Record<string, string> = {
   fable: 'Fable · high',
   heavy: 'Opus · high',
-  careful: 'Sonnet · high',
+  careful: 'Opus · high',
   medium: 'Sonnet · medium',
   light: 'Haiku',
 }

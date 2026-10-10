@@ -72,7 +72,7 @@ Pick the cheapest tier that will get the task right the first time. Two axes: **
 |------|-------|----------------|---------|
 | Fable | `savvy-fable` | Fable / high | Opt-in only: use it solely when the user explicitly asks for the Fable tier. "Hardest problems": very complex logic (subtle algorithms, concurrency, many interacting states), hard bugs that resist ordinary debugging or survived a Heavy investigation; targeted design features, only when the user asks (section 2) |
 | Heavy | `savvy-heavy` | Opus / high | "Understand and find": unfamiliar or messy code, unclear root cause, non-obvious architecture, large contexts, anything where a wrong first approach is expensive |
-| Careful | `savvy-careful` | Sonnet / high | "Do it right": the approach is clear but execution is delicate. Multi-file refactors, fixes that must preserve invariants, logic with many edge cases, concurrency |
+| Careful | `savvy-careful` | Opus / high | "Do it right": the approach is clear but execution is delicate. Multi-file refactors, fixes that must preserve invariants, logic with many edge cases, concurrency |
 | Medium | `savvy-medium` | Sonnet / medium | Standard feature work, bug fixes with a known cause, changes confined to a few files with clear requirements |
 | Light | `savvy-light` | Haiku | Mechanical edits, renames, boilerplate, config, small isolated fixes, running builds/tests and reporting |
 
