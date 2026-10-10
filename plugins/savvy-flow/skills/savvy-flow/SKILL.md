@@ -29,6 +29,8 @@ When delegating, pass the task's `title` verbatim as the Agent tool's `descripti
 
 ## 1. Understand and plan (orchestrator only)
 
+**An approved plan already exists** (the user approved one in plan mode, or earlier in this conversation): treat its steps as the task list. Do not re-plan from scratch. Read only what the briefs need, assign each step a tier (section 3), present the tier list in a few lines, then delegate (section 4). Re-plan only the parts the plan left open.
+
 1. Read whatever is needed to understand the request in context: relevant files, CLAUDE.md, recent git history. Use an Explore subagent (haiku/sonnet) only for wide searches.
    - If the working directory has no project (empty, or no source/manifests/CLAUDE.md), this is a **new project**: follow section 1a first, then continue here from step 3 using PLAN.md as the task list.
 2. Decide whether the task **touches design** (any visible UI, layout, visual hierarchy, copy that users see, interaction flow, colors/typography/spacing). If yes → go to section 2 before any implementation.
