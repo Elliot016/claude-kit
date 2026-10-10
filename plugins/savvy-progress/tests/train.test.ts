@@ -44,7 +44,7 @@ test('in Ghostty the engine is a picture and the label stays text', async ($, on
   const engine = await band.find({ type: 'Image' })
   expect(engine).toBeDefined()
   const props = (engine as unknown as { props: { columns: number; rows: number; source: { width: number; height: number } } }).props
-  expect([props.columns, props.rows]).toEqual([5, 2])
+  expect([props.columns, props.rows]).toEqual([6, 2])
   expect([props.source.width, props.source.height]).toEqual([216, 180])
   expect(await band.find({ type: 'Text', text: 'Tasks 2/5 · 40%' })).toBeDefined()
 })

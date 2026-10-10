@@ -543,7 +543,11 @@ const paintCrab = (p: Canvas, ox: number, oy: number, color: string, frame: numb
   }, color)
 }
 
-// The engine on a 72 x 60 grid, two pixels per unit of the desktop drawing.
+// The engine on a 72 x 60 grid, two pixels per unit of the desktop drawing. The
+// terminal keeps a picture's proportions inside its box, and terminal cells run
+// about 2.1 to 2.5 times taller than wide, so 6 columns by 2 rows lets the engine
+// fill both rows instead of fitting by width.
+const ENGINE_COLS = 6
 const ENGINE_W = 72
 const ENGINE_H = 60
 const GREY = '#9a9aa0'
@@ -1221,11 +1225,11 @@ export const register: Register = (on, options) => {
 
     const cols = e.props.bodyColumns
     const titleW = Math.max(8, Math.min(30, f.title.length + 2, Math.floor(cols / 3)))
-    const width = Math.max(14, Math.min(60, cols - titleW - 14))
+    const width = Math.max(14, Math.min(100, cols - titleW - 16))
     const color = f.isFinished ? DONE : ACCENT
     const moving = isWorking && !f.isFinished
     const frame = moving ? Math.floor((await read($, now)) / 1000) % 2 : 0
-    const engineW = hasPictures && 'Image' in ui ? 5 : 1
+    const engineW = hasPictures && 'Image' in ui ? ENGINE_COLS : 1
     const { behind, ahead } = trainRuns(f, width, engineW)
     const runText = (r: Run, i: number, side: string) =>
       r.kind === 'carLabel' ? (
@@ -1236,8 +1240,8 @@ export const register: Register = (on, options) => {
         <Text key={`${side}${i}`} bold={r.kind === 'trackLabel'} dimColor={r.kind === 'track'}>{r.text}</Text>
       )
     const engine =
-      'Image' in ui && engineW === 5 ? (
-        <ui.Image key="engine" source={engineImage(color, frame, moving)} columns={5} rows={2} alt="▶" />
+      'Image' in ui && engineW === ENGINE_COLS ? (
+        <ui.Image key="engine" source={engineImage(color, frame, moving)} columns={ENGINE_COLS} rows={2} alt="▶" />
       ) : (
         <Text key="engine" color={color}>▶</Text>
       )
@@ -1252,8 +1256,10 @@ export const register: Register = (on, options) => {
           {engine}
           {ahead.map((r, i) => runText(r, i, 'a'))}
         </Box>
-        {crewButton}
-        {dismiss}
+        <Box flexDirection="row" gap={2} alignSelf="flex-end">
+          {crewButton}
+          {dismiss}
+        </Box>
       </Box>
     )
   })
