@@ -60,15 +60,13 @@ test('inside tmux it keeps the text train', async ($, on) => {
   expect(await band.find({ type: 'Text', text: '▶' })).toBeDefined()
 })
 
-test('a finished flow shows its label beside the crew count, not on the train', async ($, on) => {
+test('a finished flow shows its label at the right, not on the train, and the terminal band has no buttons', async ($, on) => {
   await start($, on)
   await report($, { title: 'Recipe import', total: 5, done: 5, finished: true })
   const band = await $.ui.mount({ plugin: 'savvy-progress', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
   const labels = await band.findAll({ type: 'Text', text: 'Done · 100%' })
   expect(labels.length).toBe(1)
-  const text = JSON.stringify(await band.findAll({}))
-  expect(text.indexOf('×') < text.indexOf('Done · 100%')).toBe(true)
-  expect(text.indexOf('Done · 100%') < text.indexOf('✕')).toBe(true)
+  expect(await band.findAll({ type: 'Button' })).toEqual([])
 })
 
 test('in Ghostty each worker row in the panel leads with its conductor crab', async ($, on) => {

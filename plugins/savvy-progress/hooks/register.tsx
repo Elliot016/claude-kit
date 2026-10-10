@@ -1289,15 +1289,17 @@ export const register: Register = (on, options) => {
           {engine}
           {ahead.map((r, i) => runText(r, i, 'a'))}
         </Box>
-        <Box flexDirection="row" gap={2} alignSelf="flex-end">
-          {crewButton}
-          {f.isFinished && (
+        {/* No buttons here: outside fullscreen the terminal passes no clicks to a
+            band, so the crew count and dismiss could not be pressed. /agents-info
+            opens the panel, a new flow replaces the train, and the engine's own [-]
+            collapses the band. */}
+        {f.isFinished && (
+          <Box alignSelf="flex-end">
             <Text color={DONE} bold>
               {trackLabel(f)}
             </Text>
-          )}
-          {dismiss}
-        </Box>
+          </Box>
+        )}
       </Box>
     )
   })
