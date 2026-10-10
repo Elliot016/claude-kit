@@ -281,33 +281,66 @@ ${locomotive(cabX, color, isWorking && !f.isFinished)}
 </svg>`
 }
 
-// The terminal's train: cars as blocks behind the engine (a picture where the
-// terminal shows images, else ▶), open track ahead, and the label inside, on the
-// track while it fits there, then on the cars.
-type Run = { text: string; kind: 'car' | 'carLabel' | 'track' | 'trackLabel' }
+// The terminal's train, drawn like GitHub's contribution graph: every cell behind
+// the engine is a square in one of four shades of the train's color, every cell
+// ahead an empty grey square. The label sits inside, on the empty squares while it
+// fits there, then on the filled ones.
+type Run = { text: string; kind: 'car' | 'carLabel' | 'track' | 'trackLabel'; color?: string }
 
-const trainRuns = (f: Flow, width: number, engineW: number): { behind: Run[]; ahead: Run[] } => {
+const EMPTY_SQUARE = '#2d333b'
+
+// `base` mixed toward a dark ground by `t` (0 is the ground, 1 is `base`).
+const shade = (base: string, t: number): string => {
+  const [r, g, b] = rgbaOf(base)
+  const [R, G, B] = [13, 17, 23]
+  const mix = (c: number, d: number) => Math.round(d + (c - d) * t).toString(16).padStart(2, '0')
+  return `#${mix(r, R)}${mix(g, G)}${mix(b, B)}`
+}
+
+// Four levels, as GitHub has; which level a square gets is fixed by its place, so
+// the pattern holds still between redraws.
+const LEVELS = [0.4, 0.6, 0.8, 1]
+const levelAt = (i: number): number => {
+  const h = Math.imul(i + 1, 2654435761) >>> 0
+  return [0, 1, 1, 2, 2, 2, 3, 3][h % 8] ?? 3
+}
+
+const squares = (n: number, base: string): Run[] => {
+  const out: Run[] = []
+  for (let i = 0; i < n; i++) {
+    const color = shade(base, LEVELS[levelAt(i)] ?? 1)
+    const last = out[out.length - 1]
+    if (last && last.color === color) last.text += '■'
+    else out.push({ text: '■', kind: 'car', color })
+  }
+  return out
+}
+
+const trainRuns = (f: Flow, width: number, engineW: number, base = f.isFinished ? DONE : ACCENT): { behind: Run[]; ahead: Run[] } => {
   const room = Math.max(0, width - engineW)
   const behindN = Math.round(room * ratio(f))
   const aheadN = room - behindN
   const text = ` ${trackLabel(f)} `
   const onCars = aheadN < text.length && (behindN >= text.length || behindN > aheadN)
   const shown = clip(text, Math.max(0, onCars ? behindN : aheadN))
-  const behind: Run['kind'][] = Array.from({ length: behindN }, (_, i) => (onCars && i < shown.length ? 'carLabel' : 'car'))
-  const behindCh = Array.from({ length: behindN }, (_, i) => (onCars && i < shown.length ? (shown[i] ?? ' ') : (behindN - 1 - i) % 6 === 5 ? ' ' : '▆'))
-  const lead = aheadN - shown.length
-  const ahead: Run['kind'][] = Array.from({ length: aheadN }, (_, i) => (!onCars && i >= lead ? 'trackLabel' : 'track'))
-  const aheadCh = Array.from({ length: aheadN }, (_, i) => (!onCars && i >= lead ? (shown[i - lead] ?? ' ') : '┄'))
-  const join = (kinds: Run['kind'][], chars: string[]): Run[] => {
-    const out: Run[] = []
-    kinds.forEach((kind, i) => {
-      const last = out[out.length - 1]
-      if (last && last.kind === kind) last.text += chars[i] ?? ''
-      else out.push({ text: chars[i] ?? '', kind })
-    })
-    return out
-  }
-  return { behind: join(behind, behindCh), ahead: join(ahead, aheadCh) }
+  const behind: Run[] = onCars
+    ? [{ text: shown, kind: 'carLabel' }, ...squares(behindN - shown.length, base)]
+    : squares(behindN, base)
+  const lead = aheadN - (onCars ? 0 : shown.length)
+  const ahead: Run[] = [
+    ...(lead > 0 ? [{ text: '■'.repeat(lead), kind: 'track' as const, color: EMPTY_SQUARE }] : []),
+    ...(!onCars && shown ? [{ text: shown, kind: 'trackLabel' as const }] : []),
+  ]
+  return { behind, ahead }
+}
+
+// The panel's progress, in the same squares: filled in the tier's color, the rest grey.
+const squareBar = (pct: number, width: number, color: string): Run[] => {
+  const filled = Math.max(0, Math.min(width, Math.round((width * pct) / 100)))
+  return [
+    ...squares(filled, color),
+    ...(width - filled > 0 ? [{ text: '■'.repeat(width - filled), kind: 'track' as const, color: EMPTY_SQUARE }] : []),
+  ]
 }
 
 // ---------------------------------------------------------------------------
@@ -762,11 +795,6 @@ const compactSvg = (W: number, list: AgentRun[], planned: Planned[], t: ReturnTy
 
 // --- terminal drawing: the same rows in text.
 
-const ctxBar = (pct: number, width: number): string => {
-  const filled = Math.round((width * pct) / 100)
-  return '█'.repeat(filled) + '░'.repeat(Math.max(0, width - filled))
-}
-
 const STATUS_GLYPH: Record<string, string> = { running: '●', done: '✓', failed: '✗', planned: '◷' }
 
 // Opens the agents pane, or closes it when it is up; true when it ends up open.
@@ -1112,7 +1140,9 @@ export const register: Register = (on, options) => {
           </Text>
           <Text wrap="truncate-end">
             {'  '}
-            {progress === null ? <Text dimColor>{ctxBar(ctx, barW)}</Text> : <Text color={color}>{ctxBar(progress * 100, barW)}</Text>}
+            {squareBar(progress === null ? ctx : progress * 100, barW, progress === null ? '#6e7681' : color).map((r, i) => (
+              <Text key={`q${i}`} color={r.color}>{r.text}</Text>
+            ))}
             <Text dimColor>
               {' '}
               {steps}ctx {ctx}% · {fmtTokens(a.contextTokens)} ≈{fmtCost(a.costUsd)} {fmtTime(elapsed(a, at))}
@@ -1234,10 +1264,10 @@ export const register: Register = (on, options) => {
     const runText = (r: Run, i: number, side: string) =>
       r.kind === 'carLabel' ? (
         <Text key={`${side}${i}`} color="#ffffff" backgroundColor={color} bold>{r.text}</Text>
-      ) : r.kind === 'car' ? (
-        <Text key={`${side}${i}`} color={color}>{r.text}</Text>
+      ) : r.kind === 'trackLabel' ? (
+        <Text key={`${side}${i}`} bold>{r.text}</Text>
       ) : (
-        <Text key={`${side}${i}`} bold={r.kind === 'trackLabel'} dimColor={r.kind === 'track'}>{r.text}</Text>
+        <Text key={`${side}${i}`} color={r.color}>{r.text}</Text>
       )
     const engine =
       'Image' in ui && engineW === ENGINE_COLS ? (
