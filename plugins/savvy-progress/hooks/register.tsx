@@ -281,34 +281,33 @@ ${locomotive(cabX, color, isWorking && !f.isFinished)}
 </svg>`
 }
 
-// The terminal's train: cars on a colored band, the engine's nose at the head,
-// open track ahead, and the label inside, on the track or on the cars.
-type Cell = { ch: string; isTrain: boolean; isLabel: boolean }
-type Run = { text: string; isTrain: boolean; isLabel: boolean }
+// The terminal's train: cars as blocks behind the engine (a picture where the
+// terminal shows images, else ▶), open track ahead, and the label inside, on the
+// track while it fits there, then on the cars.
+type Run = { text: string; kind: 'car' | 'carLabel' | 'track' | 'trackLabel' }
 
-const trainRuns = (f: Flow, width: number): Run[] => {
-  const head = 1 + Math.round((width - 1) * ratio(f))
-  const cells: Cell[] = Array.from({ length: width }, (_, i) =>
-    i < head - 1 ? { ch: ' ', isTrain: true, isLabel: false } : i === head - 1 ? { ch: '▶', isTrain: true, isLabel: false } : { ch: '┄', isTrain: false, isLabel: false },
-  )
+const trainRuns = (f: Flow, width: number, engineW: number): { behind: Run[]; ahead: Run[] } => {
+  const room = Math.max(0, width - engineW)
+  const behindN = Math.round(room * ratio(f))
+  const aheadN = room - behindN
   const text = ` ${trackLabel(f)} `
-  const ahead = width - head
-  const behind = head - 1
-  const onCars = ahead < text.length && (behind >= text.length || behind > ahead)
-  const room = onCars ? behind : ahead
-  const shown = clip(text, Math.max(0, room))
-  const start = onCars ? 0 : width - shown.length
-  ;[...shown].forEach((ch, i) => {
-    const c = cells[start + i]
-    if (c) cells[start + i] = { ch, isTrain: c.isTrain, isLabel: true }
-  })
-  const runs: Run[] = []
-  for (const c of cells) {
-    const last = runs[runs.length - 1]
-    if (last && last.isTrain === c.isTrain && last.isLabel === c.isLabel) last.text += c.ch
-    else runs.push({ text: c.ch, isTrain: c.isTrain, isLabel: c.isLabel })
+  const onCars = aheadN < text.length && (behindN >= text.length || behindN > aheadN)
+  const shown = clip(text, Math.max(0, onCars ? behindN : aheadN))
+  const behind: Run['kind'][] = Array.from({ length: behindN }, (_, i) => (onCars && i < shown.length ? 'carLabel' : 'car'))
+  const behindCh = Array.from({ length: behindN }, (_, i) => (onCars && i < shown.length ? (shown[i] ?? ' ') : (behindN - 1 - i) % 6 === 5 ? ' ' : '▆'))
+  const lead = aheadN - shown.length
+  const ahead: Run['kind'][] = Array.from({ length: aheadN }, (_, i) => (!onCars && i >= lead ? 'trackLabel' : 'track'))
+  const aheadCh = Array.from({ length: aheadN }, (_, i) => (!onCars && i >= lead ? (shown[i - lead] ?? ' ') : '┄'))
+  const join = (kinds: Run['kind'][], chars: string[]): Run[] => {
+    const out: Run[] = []
+    kinds.forEach((kind, i) => {
+      const last = out[out.length - 1]
+      if (last && last.kind === kind) last.text += chars[i] ?? ''
+      else out.push({ text: chars[i] ?? '', kind })
+    })
+    return out
   }
-  return runs
+  return { behind: join(behind, behindCh), ahead: join(ahead, aheadCh) }
 }
 
 // ---------------------------------------------------------------------------
@@ -492,6 +491,164 @@ const crab = (x: number, y: number, costume: string, dim = false, isWalking = fa
   return `<g transform="translate(${x},${y}) scale(${scale})" opacity="${dim ? 0.45 : 1}" shape-rendering="crispEdges"><g class="c-${costume}${isWalking ? ' run' : ''}">${body}${group('la')}${group('lb')}</g></g>`
 }
 
+// ---------------------------------------------------------------------------
+// Terminal pictures: the engine and the crabs as real pixels, for terminals that
+// show images (kitty, Ghostty, iTerm2, WezTerm, foot; never through tmux). The
+// drawings are painted into RGBA here, no DOM, and handed to the terminal's Image.
+
+type Canvas = { w: number; h: number; data: Uint8Array }
+
+const canvasOf = (w: number, h: number): Canvas => ({ w, h, data: new Uint8Array(w * h * 4) })
+
+const rgbaOf = (c: string): [number, number, number, number] => {
+  const m = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/.exec(c)
+  if (m) return [Number(m[1]), Number(m[2]), Number(m[3]), Math.round(Number(m[4]) * 255)]
+  const h = c.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 255]
+}
+
+// Paints one pixel over what is there (source-over), dimmed by `fade`.
+const plot = (p: Canvas, x: number, y: number, [r, g, b, a]: [number, number, number, number], fade = 1): void => {
+  if (x < 0 || y < 0 || x >= p.w || y >= p.h) return
+  const i = (y * p.w + x) * 4
+  const sa = (a / 255) * fade
+  const da = (p.data[i + 3] ?? 0) / 255
+  const oa = sa + da * (1 - sa)
+  if (oa <= 0) return
+  const mix = (s: number, d: number) => Math.round((s * sa + d * da * (1 - sa)) / oa)
+  p.data[i] = mix(r, p.data[i] ?? 0)
+  p.data[i + 1] = mix(g, p.data[i + 1] ?? 0)
+  p.data[i + 2] = mix(b, p.data[i + 2] ?? 0)
+  p.data[i + 3] = Math.round(oa * 255)
+}
+
+const box = (p: Canvas, x: number, y: number, w: number, h: number, c: string, fade = 1): void => {
+  const col = rgbaOf(c)
+  for (let yy = Math.round(y); yy < Math.round(y + h); yy++) for (let xx = Math.round(x); xx < Math.round(x + w); xx++) plot(p, xx, yy, col, fade)
+}
+
+const disc = (p: Canvas, cx: number, cy: number, r: number, c: string, fade = 1): void => {
+  const col = rgbaOf(c)
+  for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++)
+    for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) if ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r * r) plot(p, x, y, col, fade)
+}
+
+// A conductor crab at (ox, oy) in crab pixels. The frame moves what the CSS moves
+// on the desktop: the leg pairs step in turn and the lantern swings.
+const paintCrab = (p: Canvas, ox: number, oy: number, color: string, frame: number, isWorking: boolean, fade = 1): void => {
+  conductor((x, y, w, h, c, cls = 'bd') => {
+    const step = isWorking && ((cls === 'la' && frame === 0) || (cls === 'lb' && frame === 1)) ? -1 : 0
+    const swing = isWorking && cls === 'lamp' && y >= 14 ? (frame === 0 ? 1 : -1) : 0
+    box(p, ox + x + swing, oy + y + step, w, h, c, fade)
+  }, color)
+}
+
+// The engine on a 72 x 60 grid, two pixels per unit of the desktop drawing.
+const ENGINE_W = 72
+const ENGINE_H = 60
+const GREY = '#9a9aa0'
+const HUB = '#2a2a29'
+
+const paintEngine = (color: string, frame: number, isWorking: boolean): Canvas => {
+  const p = canvasOf(ENGINE_W, ENGINE_H)
+  const U = (v: number) => v * 2
+  const X = (x: number) => U(x + 2)
+  const Y = (y: number) => U(y + 11) + 4
+  const r = (x: number, y: number, w: number, h: number, c: string, fade = 1) => box(p, X(x), Y(y), U(w), U(h), c, fade)
+  if (isWorking) {
+    const puffs = frame === 0 ? [[25.5, -7, 1.6], [22, -9, 2.2]] : [[24.5, -8, 2], [20, -9.5, 2.5]]
+    for (const [x = 0, y = 0, rad = 0] of puffs) disc(p, X(x), Y(y), U(rad), '#8a8a88', 0.75)
+  }
+  r(-1, -8, 17, 2, GREY)
+  paintCrab(p, X(-1), Y(-10), ACCENT, frame, isWorking)
+  r(0, -6, 2, 9, GREY)
+  r(13, -6, 2, 9, GREY)
+  r(0, 2, 15, 9, color)
+  r(3, 4, 4, 3, '#ffffff', 0.55)
+  r(15, 1, 14, 10, color)
+  r(19, 1, 1, 10, '#000000', 0.14)
+  r(24, 1, 1, 10, '#000000', 0.14)
+  r(18, -1, 4, 2, color)
+  r(24, -5, 3, 6, GREY)
+  r(23, -6, 5, 1.5, GREY)
+  r(29, 3, 1.5, 3, '#F5C542')
+  r(29, 8, 2.5, 2, GREY)
+  r(29, 10, 3.5, 2, GREY)
+  r(0, 11, 31, 1, GREY)
+  for (const [cx, rad] of [[5, 2.6], [11, 2.6], [20, 2], [26, 2]] as const) {
+    disc(p, X(cx), Y(13), U(rad), GREY)
+    if (frame === 0) box(p, X(cx) - 1, Y(13) - U(rad) + 2, 2, U(rad) * 2 - 4, HUB)
+    else box(p, X(cx) - U(rad) + 2, Y(13) - 1, U(rad) * 2 - 4, 2, HUB)
+    disc(p, X(cx), Y(13), 1.4, HUB)
+  }
+  return p
+}
+
+// A crab on its own, padded to the 4 x 2 cell box the panel gives it.
+const paintCrabTile = (color: string, frame: number, isWorking: boolean, fade: number): Canvas => {
+  const p = canvasOf(30, 32)
+  paintCrab(p, 0, 4, color, frame, isWorking, fade)
+  return p
+}
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+// Standard padded base64, what an Image's `rgba` takes.
+const base64 = (bytes: Uint8Array): string => {
+  let out = ''
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i] ?? 0
+    const b = bytes[i + 1] ?? 0
+    const c = bytes[i + 2] ?? 0
+    const n = (a << 16) | (b << 8) | c
+    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]!
+    out += i + 1 < bytes.length ? B64[(n >> 6) & 63]! : '='
+    out += i + 2 < bytes.length ? B64[n & 63]! : '='
+  }
+  return out
+}
+
+// Nearest-neighbour upscale, so the terminal's own scaling starts from crisp edges.
+const toSource = (p: Canvas, k = 3) => {
+  const out = new Uint8Array(p.w * k * p.h * k * 4)
+  for (let y = 0; y < p.h * k; y++)
+    for (let x = 0; x < p.w * k; x++) {
+      const s = ((Math.floor(y / k) * p.w + Math.floor(x / k)) * 4)
+      const d = (y * p.w * k + x) * 4
+      out[d] = p.data[s] ?? 0
+      out[d + 1] = p.data[s + 1] ?? 0
+      out[d + 2] = p.data[s + 2] ?? 0
+      out[d + 3] = p.data[s + 3] ?? 0
+    }
+  return { rgba: base64(out), width: p.w * k, height: p.h * k }
+}
+
+// Each picture is painted once per look and frame, then reused.
+const pictures = new Map<string, ReturnType<typeof toSource>>()
+const pictureOf = (key: string, paint: () => Canvas) => {
+  const hit = pictures.get(key)
+  if (hit) return hit
+  const made = toSource(paint())
+  pictures.set(key, made)
+  return made
+}
+const engineImage = (color: string, frame: number, isWorking: boolean) =>
+  pictureOf(`engine:${color}:${isWorking ? frame : 's'}`, () => paintEngine(color, frame, isWorking))
+const crabImage = (color: string, frame: number, isWorking: boolean, isDim = false) =>
+  pictureOf(`crab:${color}:${isWorking ? frame : 's'}:${isDim ? 'd' : ''}`, () => paintCrabTile(color, frame, isWorking, isDim ? 0.45 : 1))
+
+// Whether this terminal shows images: set at session start from the environment,
+// unless the `pictures` option says off.
+let hasPictures = false
+
+async function detectPictures($: EngineInterface, option: unknown): Promise<boolean> {
+  if (option === 'off') return false
+  if (await $.env.get('TMUX')) return false
+  const program = (await $.env.get('TERM_PROGRAM')) ?? ''
+  const term = (await $.env.get('TERM')) ?? ''
+  return Boolean(await $.env.get('KITTY_WINDOW_ID')) || /ghostty|iterm|wezterm/i.test(program) || /kitty|ghostty|foot/i.test(term)
+}
+
 const statusMark = (x: number, y: number, status: string, color: string): string => {
   if (status === 'running') return `<circle class="live" cx="${x}" cy="${y}" r="3.5" fill="${color}"/>`
   if (status === 'done') return `<path d="M${x - 5} ${y}l3.5 3.5 6.5-7" fill="none" stroke="#3B9C5F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`
@@ -632,6 +789,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     lang = await detectLang($, options.language)
+    hasPictures = await detectPictures($, options.pictures)
     await $.tool.register({
       name: 'progress',
       description:
@@ -922,6 +1080,9 @@ export const register: Register = (on, options) => {
     }
 
     // Terminal: the same content in text rows.
+    // Where the terminal shows images, each row leads with its conductor crab.
+    const pictures = hasPictures && 'Image' in ui ? ui : null
+    const frame = Math.floor(at / 1000) % 2
     const cols = Math.max(24, e.props.bodyColumns || 40)
     const barW = Math.max(6, Math.min(20, cols - 34))
     const row = (a: AgentRun) => {
@@ -931,10 +1092,10 @@ export const register: Register = (on, options) => {
       const progress = progressOf(a)
       const model = a.effort ? `${modelName(a.model)} · ${a.effort}` : modelName(a.model)
       const steps = a.stepTotal ? `${a.stepDone ?? 0}/${a.stepTotal}${a.stepNote ? ' ' + a.stepNote : ''} · ` : ''
-      return (
-        <Box key={a.id} flexDirection="column" marginBottom={1}>
+      const lines = (
+        <Box flexDirection="column">
           <Box flexDirection="row" gap={1}>
-            <Text color={color}>▣</Text>
+            {!pictures && <Text color={color}>▣</Text>}
             <Text bold wrap="truncate-end">
               {a.description || a.type}
             </Text>
@@ -953,6 +1114,16 @@ export const register: Register = (on, options) => {
               {steps}ctx {ctx}% · {fmtTokens(a.contextTokens)} ≈{fmtCost(a.costUsd)} {fmtTime(elapsed(a, at))}
             </Text>
           </Text>
+        </Box>
+      )
+      return pictures ? (
+        <Box key={a.id} flexDirection="row" gap={1} marginBottom={1}>
+          <pictures.Image source={crabImage(color, frame, a.status === 'running')} columns={4} rows={2} alt="▣" />
+          {lines}
+        </Box>
+      ) : (
+        <Box key={a.id} flexDirection="column" marginBottom={1}>
+          {lines}
         </Box>
       )
     }
@@ -1050,22 +1221,36 @@ export const register: Register = (on, options) => {
 
     const cols = e.props.bodyColumns
     const titleW = Math.max(8, Math.min(30, f.title.length + 2, Math.floor(cols / 3)))
-    const width = Math.max(12, Math.min(56, cols - titleW - 14))
+    const width = Math.max(14, Math.min(60, cols - titleW - 14))
     const color = f.isFinished ? DONE : ACCENT
+    const moving = isWorking && !f.isFinished
+    const frame = moving ? Math.floor((await read($, now)) / 1000) % 2 : 0
+    const engineW = hasPictures && 'Image' in ui ? 5 : 1
+    const { behind, ahead } = trainRuns(f, width, engineW)
+    const runText = (r: Run, i: number, side: string) =>
+      r.kind === 'carLabel' ? (
+        <Text key={`${side}${i}`} color="#ffffff" backgroundColor={color} bold>{r.text}</Text>
+      ) : r.kind === 'car' ? (
+        <Text key={`${side}${i}`} color={color}>{r.text}</Text>
+      ) : (
+        <Text key={`${side}${i}`} bold={r.kind === 'trackLabel'} dimColor={r.kind === 'track'}>{r.text}</Text>
+      )
+    const engine =
+      'Image' in ui && engineW === 5 ? (
+        <ui.Image key="engine" source={engineImage(color, frame, moving)} columns={5} rows={2} alt="▶" />
+      ) : (
+        <Text key="engine" color={color}>▶</Text>
+      )
     return (
-      <Box flexDirection="row" gap={2}>
+      <Box flexDirection="row" gap={2} alignItems="flex-end">
         <Box width={titleW} flexShrink={0}>
           <Text color={color}>● </Text>
           <Text wrap="truncate-end">{f.title}</Text>
         </Box>
-        <Box flexDirection="row" flexShrink={0}>
-          {trainRuns(f, width).map((r, i) =>
-            r.isTrain ? (
-              <Text key={`r${i}`} color="#ffffff" backgroundColor={color} bold={r.isLabel}>{r.text}</Text>
-            ) : (
-              <Text key={`r${i}`} bold={r.isLabel} dimColor={!r.isLabel}>{r.text}</Text>
-            ),
-          )}
+        <Box flexDirection="row" flexShrink={0} alignItems="flex-end">
+          {behind.map((r, i) => runText(r, i, 'b'))}
+          {engine}
+          {ahead.map((r, i) => runText(r, i, 'a'))}
         </Box>
         {crewButton}
         {dismiss}
